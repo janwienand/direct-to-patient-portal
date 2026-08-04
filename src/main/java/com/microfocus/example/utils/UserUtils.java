@@ -108,13 +108,14 @@ public class UserUtils {
             // write new user
             jGenerator.writeStartObject();
             jGenerator.writeFieldName("firstName");
-            jGenerator.writeRawValue("\"" + firstName + "\"");
+            jGenerator.writeFieldName("firstName");
+            jGenerator.writeString(firstName);
             jGenerator.writeFieldName("lastName");
-            jGenerator.writeRawValue("\"" + lastName + "\"");
+            jGenerator.writeString(lastName);
             jGenerator.writeFieldName("email");
-            jGenerator.writeRawValue("\"" + email + "\"");
+            jGenerator.writeString(email);
             jGenerator.writeFieldName("role");
-            jGenerator.writeRawValue("\"" + DEFAULT_ROLE + "\"");
+            jGenerator.writeString(DEFAULT_ROLE);
             jGenerator.writeEndObject();
 
             jGenerator.writeEndArray();
