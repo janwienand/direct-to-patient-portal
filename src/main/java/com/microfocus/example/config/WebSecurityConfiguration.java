@@ -128,8 +128,10 @@ public class WebSecurityConfiguration extends WebSecurityConfigurerAdapter {
                     .and().sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                     //.and().httpBasic().authenticationEntryPoint(basicAuthenticationEntryPoint)
                     .and().exceptionHandling().accessDeniedHandler(apiAccessDeniedHandler)
-                    .and().csrf().disable();
-
+                    .and().csrf().disable()
+                    .headers()
+                    .contentSecurityPolicy("default-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
+ 
             httpSecurity.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
 
         }
