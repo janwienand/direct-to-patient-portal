@@ -145,7 +145,7 @@ public class WebSecurityConfiguration extends WebSecurityConfigurerAdapter {
             if (activeProfile.contains("dev")) {
                 log.info("Running development profile");
                 httpSecurity.csrf().disable();
-                httpSecurity.headers().frameOptions().disable();
+                // Frame options protection enabled (using Spring Security defaults)
                 httpSecurity.cors().disable();
                 httpSecurity.headers().xssProtection().disable();
             }
