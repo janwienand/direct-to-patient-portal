@@ -154,11 +154,14 @@ public class FileSystemStorageService implements StorageService {
     @Override
     public Resource loadAsResource(String filename, boolean traverse) {
         try {
-            Path file = null; 
+            Path file = null;
             if (traverse) {
-            	file = Paths.get(filename);
-            } else { 
-            	file = load(filename);
+                file = Paths.get(filename).normalize().toAbsolutePath();
+                if (!file.startsWith(this.rootLocation.toAbsolutePath())) {
+                    throw new StorageException("Cannot access file outside current directory.");
+                }
+            } else {
+                file = load(filename);
             }
             
             Resource resource = new UrlResource(file.toUri());
