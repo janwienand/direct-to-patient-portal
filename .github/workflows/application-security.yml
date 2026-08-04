@@ -19,6 +19,7 @@ permissions:
   contents: read
   security-events: write
   pull-requests: write
+  actions: write
 
 jobs:
 
@@ -120,35 +121,27 @@ jobs:
       # so that one gate decides on both. The bill of materials is the transport.
       # ---------------------------------------------------------------------
 
+      # Fetched over the API on purpose. The ready-made action publishes the export
+      # as a build artifact, and on a public repository anyone can download it —
+      # the document carries internal deep links.
       - name: Export the software bill of materials
         id: sbom
         if: ${{ success() || steps.evaluate.outcome == 'failure' }}
-        uses: sonatype/actions/fetch-sbom@v1
-        with:
-          iq-server-url: ${{ secrets.SONATYPE_IQ_URL }}
-          username: ${{ secrets.SONATYPE_IQ_USER }}
-          password: ${{ secrets.SONATYPE_IQ_PASSWORD }}
-          application-id: direct-to-patient-portal
-          scan-id: ${{ steps.evaluate.outputs.scan-id }}
-          sbom-standard: cycloneDx
-          sbom-format: json
-          sbom-version: '1.6'
-          artifact-name: bill-of-materials
-
-      # This action publishes the exported file as a build artifact, and on a public
-      # repository anyone can download it. Fail loudly if the internal hostname ever
-      # turns up inside it, rather than discovering that later.
-      - name: Check the exported file for internal hostnames
-        if: ${{ steps.sbom.outcome == 'success' }}
         env:
           IQ_URL: ${{ secrets.SONATYPE_IQ_URL }}
+          IQ_USER: ${{ secrets.SONATYPE_IQ_USER }}
+          IQ_PASS: ${{ secrets.SONATYPE_IQ_PASSWORD }}
         run: |
-          HOST=$(printf '%s' "$IQ_URL" | sed -E 's#^https?://##; s#/.*$##')
-          if grep -qiF "$HOST" "${{ steps.sbom.outputs.sbom-file-path }}"; then
-            echo "::error::The exported bill of materials contains the internal hostname. Not proceeding."
-            exit 1
+          set -euo pipefail
+          APP_ID=$(curl -sS -u "$IQ_USER:$IQ_PASS" \
+            "$IQ_URL/api/v2/applications?publicId=direct-to-patient-portal" \
+            | jq -r '.applications[0].id')
+          if [ -z "$APP_ID" ] || [ "$APP_ID" = "null" ]; then
+            echo "::error::Could not resolve the application."; exit 1
           fi
-          echo "Clean: no internal hostname in the exported file."
+          curl -sS -u "$IQ_USER:$IQ_PASS" -H 'Accept: application/json' \
+            "$IQ_URL/api/v2/cycloneDx/1.6/$APP_ID/stages/develop" -o bom.json
+          echo "Components: $(jq '.components | length' bom.json), vulnerabilities: $(jq '.vulnerabilities | length' bom.json)"
 
       # Each finding gets a line pointing back to where the decision actually lives.
       # It arrives as plain text, not as a link — the platform escapes any markup.
@@ -160,8 +153,7 @@ jobs:
           jq --arg iq "$IQ_URL" '.vulnerabilities |= map(
             .recommendation = "Sonatype Lifecycle is the system of record for this open source finding. "
               + "Full vulnerability research, affected versions, policy decision and remediation guidance: "
-              + $iq + "/ui/links/vln/" + .id)' \
-            "${{ steps.sbom.outputs.sbom-file-path }}" > bom-linked.json
+              + $iq + "/ui/links/vln/" + .id)' bom.json > bom-linked.json
           echo "Vulnerabilities carrying a pointer: $(jq '[.vulnerabilities[] | select(.recommendation)] | length' bom-linked.json)"
 
       - name: Set up the release tooling
@@ -185,6 +177,19 @@ jobs:
             --user "$FOD_USER" --password "$FOD_PASSWORD" --fod-session sbom-import
           fcli fod oss-scan import -f bom-linked.json --rel "$FOD_RELEASE" --fod-session sbom-import
           fcli fod session logout --fod-session sbom-import
+
+      # The policy evaluation publishes its raw output as a build artifact, and that
+      # output carries internal deep links. On a public repository those artifacts are
+      # downloadable by anyone, so nothing is left behind once the run is done.
+      - name: Remove build artifacts from this run
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for id in $(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" \
+                        --jq '.artifacts[].id'); do
+            gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/$id" && echo "removed $id"
+          done
 
   release-gate:
     name: Release gate
