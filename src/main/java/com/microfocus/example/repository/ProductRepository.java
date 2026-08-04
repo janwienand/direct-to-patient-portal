@@ -90,9 +90,9 @@ public class ProductRepository {
     public Optional<Product> findByCode(String code) {
         List<Product> result = new ArrayList<>();
         String query = code.toLowerCase();
-        String sqlQuery = "SELECT * FROM " + getTableName() +
-                " WHERE lower(code) = '" + query + "'";
-        result = jdbcTemplate.query(sqlQuery, new ProductMapper());
+        String sqlQuery = "SELECT * FROM " + getTableName() + 
+                " WHERE lower(code) = ?";
+        result = jdbcTemplate.query(sqlQuery, new ProductMapper(), query);
         Optional<Product> optionalProduct = Optional.empty();
         if (!result.isEmpty()) {
             optionalProduct = Optional.of(result.get(0));
