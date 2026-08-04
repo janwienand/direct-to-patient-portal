@@ -1,17 +1,32 @@
-# IWA (Insecure Web App) Java Edition
+# Pharmacy Direct
+
+Direct-to-patient ordering portal: prescriptions, repeat medication and everyday health
+products. Java 17 / Spring Boot, an HTML front end and a Swagger-documented API.
 
 ## Overview
 
-_IWA (Insecure Web App) Java Edition_ is an example Java/Spring Web Application for use in **DevSecOps** scenarios and demonstrations.
-It includes some examples of bad and insecure code - which can be found using static and dynamic application
-security testing tools such as those provided by [Micro Focus Fortify](https://www.microfocus.com/en-us/cyberres/application-security).
+Patients browse and buy products (medication) and request services (prescriptions, health
+checks). Staff manage orders, users and messages through an admin area.
 
-The application is intended to provide the functionality of a typical "online pharmacy", including purchasing Products (medication)
-and requesting Services (prescriptions, health checks etc). It has a modern-ish HTML front end (with some JavaScript) and a Swagger based API.
+**This application contains deliberately insecure code and must never be deployed to a
+production environment.** It exists so that application security tooling has something
+realistic to find. `EXPLOITS.md` documents the intentional weaknesses.
 
-*Please note: the application should not be used in a production environment!*
+Derived from [fortify/IWA-Java](https://github.com/fortify/IWA-Java).
 
-## Forking the Repository
+## Security in this repository
+
+Two checks run on this codebase, both visible in the **Security** tab:
+
+- **Static code analysis** of the source, on `main` and on demand.
+- **Open source analysis** of the dependencies, on `main` and on any pull request that
+  changes `pom.xml`.
+
+Before pushing, an AI coding agent can run the review skill in
+`.github/skills/fortify-change-review/` against the current diff. That is a fast local
+check, not a replacement for the pipeline.
+
+## Working with the Repository
 
 In order to execute example scenarios for yourself it is recommended that you "fork" a copy of this repository into
 your own GitHub account. The process of "forking" is described in detail in the [GitHub documentation](https://docs.github.com/en/github/getting-started-with-github/fork-a-repo) - you can start the process by clicking on the "Fork" button at the top right.

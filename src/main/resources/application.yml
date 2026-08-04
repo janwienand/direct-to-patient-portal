@@ -83,7 +83,7 @@ logging:
     org.springframework.security: INFO
 
 app:
-  name: IWA Pharmacy Direct
+  name: Pharmacy Direct
   version: 1.0
   currency: GBP
   invalidPasswordList: "/invalid-password-list.txt"
