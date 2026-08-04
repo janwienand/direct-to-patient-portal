@@ -110,12 +110,12 @@ public class ProductRepository {
         return jdbcTemplate.query(sqlQuery, new ProductMapper());
     }
     
-    public List<Product> findByKeywordsFromProductName(String keywords) {
-    	String query = keywords.toLowerCase();
-    	String sqlQuery = "SELECT * FROM " + getTableName() + 
-    			" WHERE lower(name) LIKE '%" + query + "%' ";
-    	return jdbcTemplate.query(sqlQuery, new ProductMapper());
-    }
+    public List<Product> findByKeywordsFromProductName(String keywords) { // L113
+    	String query = keywords.toLowerCase(); // L114
+    	String sqlQuery = "SELECT * FROM " + getTableName() +  // L115
+    			" WHERE lower(name) LIKE ?"; // L116
+    	return jdbcTemplate.query(sqlQuery, new ProductMapper(), "%" + query + "%"); // L117
+    } // L118
 
     public List<Product> findAvailableByKeywords(String keywords, int offset, int limit) {
         String query = keywords.toLowerCase();
