@@ -78,7 +78,9 @@ public class UserUtils {
 
         File dataFile = new File(getFilePath(NEWSLETTER_USER_FILE));
         if (dataFile.exists()) {
-            jsonArray = (JSONArray) jsonParser.parse(new FileReader(getFilePath(NEWSLETTER_USER_FILE)));
+            try (FileReader reader = new FileReader(getFilePath(NEWSLETTER_USER_FILE))) {
+                jsonArray = (JSONArray) jsonParser.parse(reader);
+            }
         } else {
             dataFile.createNewFile();
             log.debug("Created: " + getFilePath(NEWSLETTER_USER_FILE));
