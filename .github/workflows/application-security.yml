@@ -115,6 +115,77 @@ jobs:
           sarif_file: components-summarised.sarif
           category: open-source-analysis
 
+      # ---------------------------------------------------------------------
+      # Bring the component findings into the same release as the code findings,
+      # so that one gate decides on both. The bill of materials is the transport.
+      # ---------------------------------------------------------------------
+
+      - name: Export the software bill of materials
+        id: sbom
+        if: ${{ success() || steps.evaluate.outcome == 'failure' }}
+        uses: sonatype/actions/fetch-sbom@v1
+        with:
+          iq-server-url: ${{ secrets.SONATYPE_IQ_URL }}
+          username: ${{ secrets.SONATYPE_IQ_USER }}
+          password: ${{ secrets.SONATYPE_IQ_PASSWORD }}
+          application-id: direct-to-patient-portal
+          scan-id: ${{ steps.evaluate.outputs.scan-id }}
+          sbom-standard: cycloneDx
+          sbom-format: json
+          sbom-version: '1.6'
+          artifact-name: bill-of-materials
+
+      # This action publishes the exported file as a build artifact, and on a public
+      # repository anyone can download it. Fail loudly if the internal hostname ever
+      # turns up inside it, rather than discovering that later.
+      - name: Check the exported file for internal hostnames
+        if: ${{ steps.sbom.outcome == 'success' }}
+        env:
+          IQ_URL: ${{ secrets.SONATYPE_IQ_URL }}
+        run: |
+          HOST=$(printf '%s' "$IQ_URL" | sed -E 's#^https?://##; s#/.*$##')
+          if grep -qiF "$HOST" "${{ steps.sbom.outputs.sbom-file-path }}"; then
+            echo "::error::The exported bill of materials contains the internal hostname. Not proceeding."
+            exit 1
+          fi
+          echo "Clean: no internal hostname in the exported file."
+
+      # Each finding gets a line pointing back to where the decision actually lives.
+      # It arrives as plain text, not as a link — the platform escapes any markup.
+      - name: Add a pointer back to the system of record
+        if: ${{ steps.sbom.outcome == 'success' }}
+        env:
+          IQ_URL: ${{ secrets.SONATYPE_IQ_URL }}
+        run: |
+          jq --arg iq "$IQ_URL" '.vulnerabilities |= map(
+            .recommendation = "Sonatype Lifecycle is the system of record for this open source finding. "
+              + "Full vulnerability research, affected versions, policy decision and remediation guidance: "
+              + $iq + "/ui/links/vln/" + .id)' \
+            "${{ steps.sbom.outputs.sbom-file-path }}" > bom-linked.json
+          echo "Vulnerabilities carrying a pointer: $(jq '[.vulnerabilities[] | select(.recommendation)] | length' bom-linked.json)"
+
+      - name: Set up the release tooling
+        if: ${{ steps.sbom.outcome == 'success' }}
+        uses: fortify/github-action/setup@v3
+        with:
+          export-path: true
+          fcli: latest
+
+      # Import can take several minutes on a large bill of materials.
+      - name: Attach the component findings to the release
+        if: ${{ steps.sbom.outcome == 'success' }}
+        env:
+          FOD_URL: https://api.emea.fortify.com
+          FOD_TENANT: ${{ secrets.FOD_TENANT }}
+          FOD_USER: ${{ secrets.FOD_USER }}
+          FOD_PASSWORD: ${{ secrets.FOD_PAT }}
+          FOD_RELEASE: ${{ vars.FOD_RELEASE }}
+        run: |
+          fcli fod session login --url "$FOD_URL" --tenant "$FOD_TENANT" \
+            --user "$FOD_USER" --password "$FOD_PASSWORD" --fod-session sbom-import
+          fcli fod oss-scan import -f bom-linked.json --rel "$FOD_RELEASE" --fod-session sbom-import
+          fcli fod session logout --fod-session sbom-import
+
   release-gate:
     name: Release gate
     runs-on: ubuntu-latest
