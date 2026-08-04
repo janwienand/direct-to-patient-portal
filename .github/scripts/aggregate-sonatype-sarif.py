@@ -32,7 +32,10 @@ dropped, and the script refuses to write the file if any trace of the IQ host
 survives.
 
 Usage:
-    python3 tools/aggregate-sonatype-sarif.py in.sarif out.sarif [--report-url URL] [--public-links]
+    python3 tools/aggregate-sonatype-sarif.py in.sarif out.sarif [--report-url URL] [--public-links] [--security-only]
+
+--security-only drops components whose violations are licence or
+architecture-quality only, leaving the alerts that carry an actual CVE.
 """
 import json
 import re
@@ -69,7 +72,7 @@ def public_link(vuln_id):
     return None
 
 
-def main(src, dst, report_url=None, public_links=False):
+def main(src, dst, report_url=None, public_links=False, security_only=False):
     if public_links:
         # A Lifecycle report link always embeds the IQ hostname.
         report_url = None
@@ -127,9 +130,17 @@ def main(src, dst, report_url=None, public_links=False):
         if entry["location"] is None and result.get("locations"):
             entry["location"] = result["locations"][0]
 
+    # Components whose only violations are licence or architecture-quality
+    # rules produce alerts with no vulnerability behind them. In a shared
+    # Security tab they outnumber and dilute the findings that matter; the
+    # licence and waiver workflow lives in the Lifecycle UI anyway.
+    skipped_no_vulns = 0
     new_rules, new_results = [], []
     for name in sorted(comp, key=lambda k: (-comp[k]["severity"], -len(comp[k]["vulns"]), k)):
         e = comp[name]
+        if security_only and not e["vulns"]:
+            skipped_no_vulns += 1
+            continue
         vulns = sorted(e["vulns"])
         rule_id = f"sonatype/{name}"
 
@@ -214,6 +225,8 @@ def main(src, dst, report_url=None, public_links=False):
     print(f"components: {len(new_results)}")
     print(f"distinct vulnerabilities: {len(set().union(*(c['vulns'] for c in comp.values())) if comp else set())}")
     print(f"alerts before: {sum(c['violations'] for c in comp.values())}  ->  after: {len(new_results)}")
+    if security_only:
+        print(f"skipped (no known vulnerabilities, licence/quality only): {skipped_no_vulns}")
 
 
 if __name__ == "__main__":
@@ -226,6 +239,9 @@ if __name__ == "__main__":
     public = "--public-links" in args
     if public:
         args.remove("--public-links")
+    security_only = "--security-only" in args
+    if security_only:
+        args.remove("--security-only")
     if len(args) != 2:
         sys.exit(__doc__)
-    main(args[0], args[1], report or None, public)
+    main(args[0], args[1], report or None, public, security_only)

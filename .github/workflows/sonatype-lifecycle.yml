@@ -63,11 +63,15 @@ jobs:
       # --public-links is mandatory here: this repository is public, and the
       # Lifecycle deep links embed the IQ hostname. The script fails the job if
       # any trace of that hostname survives into the uploaded file.
+      #
+      # --security-only drops components whose violations are licence or
+      # architecture-quality only; those carry no CVE and would outnumber the
+      # findings that matter. Licence policy and waivers live in Lifecycle.
       - name: Aggregate and scrub SARIF
         if: ${{ always() && hashFiles('sonatype.sarif') != '' }}
         run: |
           python3 .github/scripts/aggregate-sonatype-sarif.py \
-            sonatype.sarif sonatype-aggregated.sarif --public-links
+            sonatype.sarif sonatype-aggregated.sarif --public-links --security-only
 
       - name: Upload SARIF to GitHub code scanning
         if: ${{ always() && hashFiles('sonatype-aggregated.sarif') != '' }}
