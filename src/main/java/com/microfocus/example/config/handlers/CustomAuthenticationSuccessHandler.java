@@ -98,24 +98,33 @@ public class CustomAuthenticationSuccessHandler implements AuthenticationSuccess
                 log.debug("No loginReferer; redirecting to users home page");
                 targetUrl = USER_HOME_URL;
             } else {
-                targetUrl = loginReferer;
                 String targetPath = null;
                 try {
-                    targetPath = new URL(targetUrl).getPath();
+                    URL url = new URL(loginReferer);
+                    // Only allow relative URLs or URLs from the same host
+                    String requestHost = request.getServerName();
+                    if (!url.getHost().equals(requestHost)) {
+                        log.warn("Referer host does not match application host, redirecting to user home");
+                        targetUrl = USER_HOME_URL;
+                    } else {
+                        targetPath = url.getPath();
+                        if (loginReferer.contains("?")) targetUrl = loginReferer.substring(0, loginReferer.indexOf("?"));
+                        else targetUrl = loginReferer;
+                        
+                        if (targetPath.endsWith("/cart")) {
+                            targetUrl = targetUrl.replace("/cart", "/cart/checkout");
+                        } else if (targetPath.endsWith("/login")) {
+                            targetUrl = targetUrl.replace("/login", "/user");
+                        } else if (targetPath.endsWith("/register")) {
+                            targetUrl = targetUrl.replace("/register", "/");
+                        } else if (targetPath.equals("/")) {
+                            targetUrl = targetUrl + "user";
+                        }
+                    }
                 } catch (MalformedURLException ex) {
-                    log.error(ex.getLocalizedMessage());
+                    log.error("Malformed referer URL, redirecting to user home: " + ex.getLocalizedMessage());
+                    targetUrl = USER_HOME_URL;
                 }
-                if (targetUrl.contains("?")) targetUrl = targetUrl.substring(0, targetUrl.indexOf("?"));
-                if (targetPath.endsWith("/cart")) {
-                    targetUrl = targetUrl.replace("/cart", "/cart/checkout");
-                } else if (targetPath.endsWith("/login")) {
-                    targetUrl = targetUrl.replace("/login", "/user");
-                } else if (targetPath.endsWith("/register")) {
-                    targetUrl = targetUrl.replace("/register", "/");
-                } else if (targetPath.equals("/")) {
-                    targetUrl = targetUrl + "user";
-                }
-
             }
         }
         return targetUrl;
