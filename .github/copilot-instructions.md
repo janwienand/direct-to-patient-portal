@@ -1,5 +1,16 @@
 # Copilot instructions
 
+## How work starts here
+
+This repository uses spec-driven development. Features begin as a specification in
+`specs/`, not as a chat message. The commands `/speckit.specify`, `/speckit.plan`,
+`/speckit.tasks` and `/speckit.implement` are available in Copilot Chat.
+
+`.specify/memory/constitution.md` holds the principles that govern every change. Read it
+before planning or implementing. It is not optional context.
+
+## Security guidance
+
 This repository has security guidance available to you. Use it — do not wait to be asked.
 
 ## Before proposing a commit, a push, or a pull request
