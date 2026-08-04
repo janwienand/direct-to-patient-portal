@@ -44,6 +44,8 @@ jobs:
       - name: Analyse the source code and publish findings
         uses: fortify/github-action@v3
         env:
+          # Public regional endpoint, not a secret.
+          FOD_URL: https://api.emea.fortify.com
           FOD_TENANT: ${{ secrets.FOD_TENANT }}
           FOD_USER: ${{ secrets.FOD_USER }}
           FOD_PASSWORD: ${{ secrets.FOD_PAT }}
