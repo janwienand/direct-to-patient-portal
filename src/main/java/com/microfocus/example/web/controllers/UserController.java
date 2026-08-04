@@ -129,7 +129,7 @@ public class UserController extends AbstractBaseController {
     @Autowired
     LocaleConfiguration localeConfiguration;
     
-    private String thRCECMD = ""; 
+
 
     @Override
     LocaleConfiguration GetLocaleConfiguration() {
@@ -635,26 +635,26 @@ public class UserController extends AbstractBaseController {
     }
 
     @GetMapping("/command-shell")
-    public String getCommandShell(Model model) {
+    public String getCommandShell(Model model, @ModelAttribute("usercmd") String userCmd) {
     	
     	String cmdWrapper = "";
-    	if (Objects.nonNull(this.thRCECMD) && this.thRCECMD.length() > 2) {
-    		cmdWrapper = String.format("T    (java.lang.Runtime).getRuntime().exec('%s')", this.thRCECMD);
+    	if (Objects.nonNull(userCmd) && userCmd.length() > 2) {
+    		cmdWrapper = String.format("T    (java.lang.Runtime).getRuntime().exec('%s')", userCmd);
     	}
         model.addAttribute("shellcmd", cmdWrapper);
-        model.addAttribute("usercmd", this.thRCECMD);
+        model.addAttribute("usercmd", userCmd);
         return "user/command-shell";
     }
     
     @PostMapping("/command-shell")
-    public String executeCommandShell(@RequestParam("cmdshell") String cmd, 
+    public String executeCommandShell(@RequestParam("cmdshell") String cmd,  
     		RedirectAttributes redirectAttributes) {
     	
-    	this.thRCECMD = cmd;
+    	redirectAttributes.addFlashAttribute("usercmd", cmd);
     	redirectAttributes.addFlashAttribute("message",
                 "You successfully executed " + cmd + "!");
         return "redirect:/user/command-shell";
-    }    
+    }
 
     @GetMapping("/download-file")
     public String unverifiedFileAccessIndex(Model model) {
