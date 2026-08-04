@@ -11,3 +11,6 @@ target/
 .project
 .settings/
 .env
+launcher.log
+scancentral.log
+fcli.log
