@@ -1,0 +1,132 @@
+# Everything visible in the Actions tab is named after what it does, not after the
+# tool that does it. Product names live in the secrets and in the documentation.
+
+name: Application security
+
+# Deliberately NOT triggered on every pull request: this repository carries a batch
+# of automated remediation PRs that do not touch dependencies, and each would
+# otherwise queue a full analysis. Dependency changes still get their own run
+# through the paths filter.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - pom.xml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+jobs:
+
+  static-analysis:
+    name: Static code analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v5
+
+      - name: Set up the build environment
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: maven
+
+      # One step: package the source, submit it, wait for the result, evaluate the
+      # policy and publish the findings into the Security tab. The analysis engine
+      # is the same one a developer can run locally before pushing.
+      - name: Analyse the source code and publish findings
+        uses: fortify/github-action@v3
+        env:
+          FOD_TENANT: ${{ secrets.FOD_TENANT }}
+          FOD_USER: ${{ secrets.FOD_USER }}
+          FOD_PASSWORD: ${{ secrets.FOD_PAT }}
+          FOD_RELEASE: ${{ vars.FOD_RELEASE }}
+          DO_SETUP: "false"
+          # Open source is analysed in its own job below, by a dedicated engine.
+          DO_SCA_SCAN: "false"
+          DO_AVIATOR_AUDIT: "true"
+          PACKAGE_EXTRA_OPTS: -bt mvn
+          DO_CHECK_POLICY: "true"
+          DO_PR_COMMENT: "true"
+
+  open-source-analysis:
+    name: Open source analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v5
+
+      - name: Set up the build environment
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: maven
+
+      # Indexing writes the exact Maven relationships alongside the built artefact.
+      # Scanning both is what produces a real dependency tree rather than a graph
+      # reconstructed from a public registry.
+      - name: Build and resolve the dependency tree
+        run: |
+          mvn -B -ntp -DskipTests package
+          mvn -B -ntp com.sonatype.clm:clm-maven-plugin:index
+
+      - name: Evaluate components against policy
+        id: evaluate
+        uses: sonatype/actions/evaluate@v1
+        with:
+          iq-server-url: ${{ secrets.SONATYPE_IQ_URL }}
+          username: ${{ secrets.SONATYPE_IQ_USER }}
+          password: ${{ secrets.SONATYPE_IQ_PASSWORD }}
+          application-id: direct-to-patient-portal
+          stage: develop
+          scan-targets: target/sonatype-clm/module.xml target/iwa.jar
+          sarif-file: components.sarif
+          # Uploaded further down, after aggregation and link scrubbing.
+          upload-sarif-file: false
+
+      # One result per policy violation would bury the code findings. This collapses
+      # them to one alert per component, carrying the full vulnerability list.
+      #
+      # --public-links is mandatory: this repository is public and the deep links
+      # would otherwise embed the internal hostname. The script fails the job if any
+      # trace of that hostname survives into the uploaded file.
+      #
+      # --security-only drops components whose violations are licence or quality
+      # only. Licence policy and waivers are handled in the platform, not here.
+      - name: Summarise findings per component
+        if: ${{ always() && hashFiles('components.sarif') != '' }}
+        run: |
+          python3 .github/scripts/aggregate-sonatype-sarif.py \
+            components.sarif components-summarised.sarif --public-links --security-only
+
+      - name: Publish findings to the Security tab
+        if: ${{ always() && hashFiles('components-summarised.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: components-summarised.sarif
+          category: open-source-analysis
+
+  release-gate:
+    name: Release gate
+    runs-on: ubuntu-latest
+    needs: [static-analysis, open-source-analysis]
+    if: always()
+    steps:
+      - name: Decide whether this release may proceed
+        run: |
+          CODE="${{ needs.static-analysis.result }}"
+          DEPS="${{ needs.open-source-analysis.result }}"
+          echo "Source code analysis ..... $CODE"
+          echo "Open source analysis ..... $DEPS"
+          if [ "$CODE" = "success" ] && [ "$DEPS" = "success" ]; then
+            echo "Both checks passed. This build may be released."
+          else
+            echo "::error::A security check did not pass. This build is blocked."
+            exit 1
+          fi
