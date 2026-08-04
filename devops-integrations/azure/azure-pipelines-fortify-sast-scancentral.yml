@@ -1,0 +1,82 @@
+# Integrate Fortify ScanCentral Static AppSec Testing (SAST) into your Azure DevOps pipeline
+# The following pipeline variables must be defined before using SAST stage:
+#   - $SSC_URL
+#   - $SSC_TOKEN
+#   - $SC_SAST_TOKEN
+# The following pipeline variables are optional and can be defined to enable additional features:
+#   - $SSC_APPVERSION
+#   - $AVIATOR_URL
+#   - $AVIATOR_TOKEN
+#   - $AVIATOR_APP
+#   - $DEBRICKED_ACCESS_TOKEN
+# For more information on using Fortify ScanCentral SAST in Azure DevOps, see the documentation: 
+# https://fortify.github.io/fcli/v3/ci/ado/script/ast-workflow-ssc.html
+
+trigger:
+- none
+stages:
+- stage: Build
+  jobs:
+    - job: Build
+      displayName: Building IWA Project
+      pool:
+        vmImage: ubuntu-latest
+      steps:
+      - task: Maven@3
+        inputs:
+          mavenPomFile: 'pom.xml'
+          mavenOptions: '-Xmx3072m'
+          javaHomeOption: 'JDKVersion'
+          jdkVersionOption: '1.17'
+          jdkArchitectureOption: 'x64'
+          publishJUnitResults: true
+          testResultsFiles: '**/surefire-reports/TEST-*.xml'
+          goals: 'package'
+    - job: SAST
+      displayName: Fortify SAST
+      dependsOn:
+       - Build
+      pool:
+       vmImage: 'ubuntu-latest'
+      steps:
+        - checkout: self
+          persistCredentials: "true"
+          clean: "true"
+        - task: Bash@3
+          displayName: 'Install Fortify CLI via @fortify/setup'
+          inputs:
+            targetType: 'inline'
+            script: |
+              npx @fortify/setup@v2 env init --tools=fcli:bootstrapped
+              npx @fortify/setup@v2 env ado
+        - task: Bash@3
+          displayName: 'Run ScanCentral SAST CI Scan'
+          inputs:
+            targetType: 'inline'
+            script: |
+              set -euo pipefail
+              fcli action run ci
+          env:
+            SSC_URL: $(SSC_URL)
+            SSC_TOKEN: $(SSC_TOKEN)
+            SC_SAST_TOKEN: $(SC_SAST_TOKEN)
+            # Uncomment to enable Aviatior AI audit and remediation
+            #AVIATOR_URL: $(AVIATOR_URL)
+            #AVIATOR_TOKEN: $(AVIATOR_TOKEN)
+            #AVIATOR_APP: $(AVIATOR_APP)
+            # Uncomment to enable Debricked SCA scan
+            #DEBRICKED_ACCESS_TOKEN: $(DEBRICKED_ACCESS_TOKEN)
+            # SSC_APPVERSION is optional, defaults to <org>/<repo>:<branch>
+            #SSC_APPVERSION: "$(SSC_APPVERSION)"
+            DO_SETUP: true
+            DO_SAST_SCAN: true
+            #SAST_WAIT_EXTRA_OPTS: --timeout 2h
+            #DO_DEBRICKED_SCAN: true
+            #DO_AVIATOR_AUDIT: true
+            DO_WAIT: true
+            DO_APPVERSION_SUMMARY: true
+            DO_POLICY_CHECK: true
+            DO_JOB_SUMMARY: true
+            DO_PR_COMMENT: true
+            DO_EXPORT: true
+    
