@@ -109,12 +109,42 @@ jobs:
           python3 .github/scripts/aggregate-sonatype-sarif.py \
             components.sarif components-summarised.sarif --public-links --security-only
 
+      # Uploaded over the API rather than with the ready-made upload action, and
+      # that is deliberate. The action registers the findings against the workflow
+      # file, so the Security tab reports the tool as broken whenever any job in
+      # this workflow fails — including the release gate doing exactly what it is
+      # meant to do. Over the API the findings stand on their own, the same way the
+      # source code findings are published.
+      #
+      # The category separates these findings from the code findings. It travels
+      # inside the document, because the API has no parameter for it.
       - name: Publish findings to the Security tab
         if: ${{ always() && hashFiles('components-summarised.sarif') != '' }}
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: components-summarised.sarif
-          category: open-source-analysis
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          jq '.runs[0].automationDetails = {"id": "open-source-analysis/"}' \
+            components-summarised.sarif > components-upload.sarif
+          jq -n --arg sha "$GITHUB_SHA" --arg ref "$GITHUB_REF" \
+                --arg sarif "$(gzip -c components-upload.sarif | base64 -w0)" \
+                '{commit_sha: $sha, ref: $ref, sarif: $sarif}' > components-upload.json
+          ID=$(gh api -X POST "repos/$GITHUB_REPOSITORY/code-scanning/sarifs" \
+                 --input components-upload.json --jq .id)
+          echo "Upload $ID accepted, waiting for it to be processed."
+          # Processing is asynchronous. Without the wait a rejected document would
+          # pass as a green step and the findings would silently never appear.
+          for _ in $(seq 1 30); do
+            STATUS=$(gh api "repos/$GITHUB_REPOSITORY/code-scanning/sarifs/$ID" --jq .processing_status)
+            case "$STATUS" in
+              complete) echo "Findings published."; exit 0 ;;
+              failed)   gh api "repos/$GITHUB_REPOSITORY/code-scanning/sarifs/$ID" --jq '.errors[]?'
+                        echo "::error::The findings were rejected."; exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo "::error::The findings were still not processed after five minutes."
+          exit 1
 
       # ---------------------------------------------------------------------
       # Bring the component findings into the same release as the code findings,
