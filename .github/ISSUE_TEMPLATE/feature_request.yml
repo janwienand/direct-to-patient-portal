@@ -1,0 +1,53 @@
+name: Feature request
+description: Propose a feature. This becomes a specification under specs/.
+title: "<short description of the feature>"
+labels: ["spec", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A feature request is the starting point of a specification. Fill this in well
+        enough that `/speckit.specify` can turn it into a spec without guessing.
+        The rules every implementation has to satisfy are in
+        [`.specify/memory/constitution.md`](../blob/main/.specify/memory/constitution.md).
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: The problem, and what it costs us today. Numbers if you have them.
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What
+      description: The behaviour, as numbered steps a patient or a pharmacist would recognise.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Checkboxes. How we will know it works — including who is allowed to do it.
+      value: |
+        - [ ]
+    validations:
+      required: true
+  - type: dropdown
+    id: dependency
+    attributes:
+      label: Does this need a new third-party component?
+      description: >
+        If yes, it is checked against policy before it is written into pom.xml,
+        and the choice is justified in the plan.
+      options:
+        - "No"
+        - "Yes"
+        - "Not sure yet"
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Out of scope
+      description: What this deliberately does not cover.

@@ -18,7 +18,20 @@ Before the implementation of any spec is proposed for merge:
 The pipeline still runs afterwards. These steps make it likely to be green, they do not
 replace it.
 
-| Spec | Feature | Status |
-|---|---|---|
-| [SPEC-001](SPEC-001-repeat-prescription.md) | Repeat prescription ordering | Ready for implementation |
-| [SPEC-002](SPEC-002-order-receipt.md) | Downloadable order receipt | Ready for implementation |
+## Where the backlog lives
+
+Feature requests are raised as [issues](../../issues) so the whole team can see what is
+planned, discuss it and pick it up. An issue that is picked up becomes a spec file here.
+The issue stays the place for discussion; this directory holds the agreed wording.
+
+| Spec | Feature | Issue | Status |
+|---|---|---|---|
+| [SPEC-001](SPEC-001-repeat-prescription.md) | Repeat prescription ordering | #25 | Ready for implementation |
+| [SPEC-002](SPEC-002-order-receipt.md) | Downloadable order receipt | #26 | Ready for implementation |
+
+Everything else is still an issue. Labels worth knowing:
+
+- `needs-dependency` — the feature introduces a third-party component. It is checked
+  against policy **before** it reaches `pom.xml`.
+- `security-review` — the feature touches authentication, authorisation, uploads, input
+  handling or outbound calls. The change review runs against the diff before merge.
