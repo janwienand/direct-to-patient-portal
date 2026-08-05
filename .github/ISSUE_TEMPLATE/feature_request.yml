@@ -1,7 +1,6 @@
 name: Feature request
 description: Propose a feature. This becomes a specification under specs/.
-title: "<short description of the feature>"
-labels: ["spec", "enhancement"]
+title: "<the feature in three or four words>"
 body:
   - type: markdown
     attributes:

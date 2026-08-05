@@ -29,9 +29,10 @@ The issue stays the place for discussion; this directory holds the agreed wordin
 | [SPEC-001](SPEC-001-repeat-prescription.md) | Repeat prescription ordering | #25 | Ready for implementation |
 | [SPEC-002](SPEC-002-order-receipt.md) | Downloadable order receipt | #26 | Ready for implementation |
 
-Everything else is still an issue. Labels worth knowing:
+Everything else is still an issue. There are two labels, and they exist because they
+change how the work is done:
 
-- `needs-dependency` — the feature introduces a third-party component. It is checked
-  against policy **before** it reaches `pom.xml`.
-- `security-review` — the feature touches authentication, authorisation, uploads, input
-  handling or outbound calls. The change review runs against the diff before merge.
+- `dependency` — introduces a third-party component. It is checked against policy
+  **before** it reaches `pom.xml`.
+- `security` — touches authentication, authorisation, uploads, input handling or
+  outbound calls. The change review runs against the diff before merge.
