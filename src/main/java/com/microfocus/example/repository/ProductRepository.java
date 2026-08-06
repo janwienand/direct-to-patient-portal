@@ -129,10 +129,10 @@ public class ProductRepository {
     }
 
     public List<Product> findAvailableByKeywordsFromProductName(String keywords) {
-    	String query = keywords.toLowerCase();
-    	String sqlQuery = "SELECT * FROM " + getTableName() +
-    			" WHERE available = true AND lower(name) LIKE '%" + query + "%' ";
-    	return jdbcTemplate.query(sqlQuery, new ProductMapper());
+    	String query = "%" + keywords.toLowerCase() + "%";
+    	String sqlQuery = "SELECT * FROM " + getTableName() + 
+    			" WHERE available = true AND lower(name) LIKE ?";
+    	return jdbcTemplate.query(sqlQuery, new ProductMapper(), query);
     }
     
     public Product save(Product p) {
